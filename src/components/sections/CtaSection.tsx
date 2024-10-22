@@ -1,16 +1,33 @@
+import React from "react";
+
 interface CtaSectionProps {
   isTwoColumn?: boolean;
   theme?: "dark" | "light" | "brand";
-  align?: "left" | "center";
+  textAlign?: "left" | "center";
+  imageAlign?: "left" | "right";
+  children?: React.ReactNode;
 }
 
+// TODO: replacing static content with inputs
+// (h2, p, button text, href, img)
+
 const CtaSection = (props: CtaSectionProps) => {
-  const { isTwoColumn = false, align = "left", theme = "light" } = props;
+  const {
+    isTwoColumn = false,
+    textAlign = "left",
+    imageAlign = "right",
+    theme = "light",
+    children,
+  } = props;
 
   const maxWidthContainerClass = isTwoColumn ? "max-w-md" : "";
   const maxWidthContentClass =
-    !isTwoColumn && align === "center" ? "mx-auto max-w-2xl" : "";
-  const flexStyle = align === "center" ? "center" : "start";
+    !isTwoColumn && textAlign === "center" ? "mx-auto max-w-2xl" : "";
+  const paddingClass = isTwoColumn
+    ? "pt-16 sm:px-16 md:pt-24 lg:pt-0 "
+    : "py-16 sm:py-16 md:py-24 lg:py-0 ";
+  const twoColumnMargin = "";
+  const flexStyle = textAlign === "center" ? "center" : "start";
 
   const themeClasses = {
     light: {
@@ -37,12 +54,74 @@ const CtaSection = (props: CtaSectionProps) => {
   };
   const themeStyles = themeClasses[theme];
 
+  // the contents
+  const mainContent = (
+    <div
+      className={`mx-auto ${maxWidthContainerClass} text-center py-16 lg:mx-0 lg:flex-auto lg:py-32 lg:text-${textAlign}`}
+    >
+      <h2
+        className={`text-3xl ${maxWidthContentClass} font-bold tracking-tight ${themeStyles.h2} sm:text-4xl`}
+      >
+        Boost your productivity.
+        <br />
+        Start using our app today.
+      </h2>
+      <p
+        className={`mt-6 text-lg leading-8 ${maxWidthContentClass} ${themeStyles.p}`}
+      >
+        Ac euismod vel sit maecenas id pellentesque eu sed consectetur.
+        Malesuada adipiscing sagittis vel nulla.
+      </p>
+      <div
+        className={`mt-10 flex items-center justify-${flexStyle} gap-x-6 lg:justify-${flexStyle}`}
+      >
+        <a
+          href="#"
+          className={`rounded-md px-3.5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${themeStyles.button}`}
+        >
+          Get started
+        </a>
+        <a
+          href="#"
+          className={`text-sm font-semibold leading-6 ${themeStyles.p}`}
+        >
+          Learn more <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  );
+  const imageContent = (
+    <div className="relative mt-16 h-80 lg:mt-8">
+      <img
+        alt="App screenshot"
+        src="https://tailwindui.com/plus/img/component-images/dark-project-app-screenshot.png"
+        width={1824}
+        height={1080}
+        className="absolute left-0 top-0 w-[57rem] max-w-none rounded-md bg-white/5 ring-1 ring-white/10"
+      />
+    </div>
+  );
+
+  const imageContent2 = (
+    <div
+      className={`relative ${twoColumnMargin} lg:max-w-96 flex justify-center items-center`}
+    >
+      <img
+        alt="App screenshot"
+        src="https://images.unsplash.com/photo-1519338381761-c7523edc1f46?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80"
+        // width={1824}
+        // height={1080}
+        className="left-0 top-0 rounded-md bg-white/5 ring-1 ring-white/10"
+      />
+    </div>
+  );
+
   return (
     <>
       <div className="bg-white">
         <div className="mx-auto max-w-7xl py-24 sm:px-6 sm:py-32 lg:px-8">
           <div
-            className={`relative isolate overflow-hidden ${themeStyles.background} px-6 pt-16 shadow-2xl sm:rounded-3xl sm:px-16 md:pt-24 lg:flex lg:gap-x-20 lg:px-24 lg:pt-0`}
+            className={`relative isolate overflow-hidden ${themeStyles.background} ${paddingClass} px-6 shadow-2xl sm:rounded-3xl lg:flex lg:gap-x-20 lg:px-24`}
           >
             {/* background gradient */}
             {theme === "dark" && (
@@ -68,49 +147,14 @@ const CtaSection = (props: CtaSectionProps) => {
             )}
             {/* background gradient - END */}
 
-            <div
-              className={`mx-auto ${maxWidthContainerClass} text-center lg:mx-0 lg:flex-auto lg:py-32 lg:text-${align}`}
-            >
-              <h2
-                className={`text-3xl ${maxWidthContentClass} font-bold tracking-tight ${themeStyles.h2} sm:text-4xl`}
-              >
-                Boost your productivity.
-                <br />
-                Start using our app today.
-              </h2>
-              <p
-                className={`mt-6 text-lg leading-8 ${maxWidthContentClass} ${themeStyles.p}`}
-              >
-                Ac euismod vel sit maecenas id pellentesque eu sed consectetur.
-                Malesuada adipiscing sagittis vel nulla.
-              </p>
-              <div
-                className={`mt-10 flex items-center justify-${flexStyle} gap-x-6 lg:justify-${flexStyle}`}
-              >
-                <a
-                  href="#"
-                  className={`rounded-md px-3.5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${themeStyles.button}`}
-                >
-                  Get started
-                </a>
-                <a
-                  href="#"
-                  className={`text-sm font-semibold leading-6 ${themeStyles.p}`}
-                >
-                  Learn more <span aria-hidden="true">→</span>
-                </a>
-              </div>
-            </div>
-            {isTwoColumn && (
-              <div className="relative mt-16 h-80 lg:mt-8">
-                <img
-                  alt="App screenshot"
-                  src="https://tailwindui.com/plus/img/component-images/dark-project-app-screenshot.png"
-                  width={1824}
-                  height={1080}
-                  className="absolute left-0 top-0 w-[57rem] max-w-none rounded-md bg-white/5 ring-1 ring-white/10"
-                />
-              </div>
+            {children}
+
+            {!children && (
+              <>
+                {isTwoColumn && imageAlign === "left" && imageContent2}
+                {mainContent}
+                {isTwoColumn && imageAlign === "right" && imageContent}
+              </>
             )}
           </div>
         </div>
