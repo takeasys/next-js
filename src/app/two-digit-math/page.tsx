@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 // Global configuration
-const QUESTION_TIME_LIMIT = 60; // seconds per question
+const QUESTION_TIME_LIMIT = 600; // seconds per question
 
 interface Question {
   num1: number;
@@ -34,6 +34,8 @@ export default function TwoDigitMathTest() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
   const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
+  const [rewardUnlocked, setRewardUnlocked] = useState(false);
+  const [showRewardModal, setShowRewardModal] = useState(false);
 
   // Generate a new 2-digit math question
   const generateQuestion = () => {
@@ -135,6 +137,13 @@ export default function TwoDigitMathTest() {
       setFeedback(
         `Not quite! The answer is ${currentQuestion.answer}. Keep trying!`
       );
+    }
+
+    // Check if 10 questions completed and unlock reward
+    const newTotalQuestions = totalQuestions + 1;
+    if (newTotalQuestions >= 10 && !rewardUnlocked) {
+      setRewardUnlocked(true);
+      setShowRewardModal(true);
     }
   };
 
@@ -255,6 +264,21 @@ export default function TwoDigitMathTest() {
                     {getPercentage()}% 🎯
                   </span>
                 </div>
+                {/* Reward Progress */}
+                {!rewardUnlocked && totalQuestions < 10 && (
+                  <div className="bg-purple-100 rounded-full px-2 py-1">
+                    <span className="text-sm font-bold text-purple-800">
+                      🏎️ {10 - totalQuestions} to unlock reward!
+                    </span>
+                  </div>
+                )}
+                {rewardUnlocked && (
+                  <div className="bg-purple-100 rounded-full px-2 py-1">
+                    <span className="text-sm font-bold text-purple-800">
+                      🏎️ Reward Unlocked!
+                    </span>
+                  </div>
+                )}
                 {/* Timer Display */}
                 {isCorrect === null && (
                   <div
@@ -491,6 +515,55 @@ export default function TwoDigitMathTest() {
           >
             🏠 Home
           </button>
+        )}
+
+        {/* Car Racing Button (when reward unlocked) */}
+        {gameStarted && rewardUnlocked && (
+          <a
+            href="/car-racing"
+            className="absolute top-4 right-20 bg-purple-500 text-white font-bold py-2 px-4 rounded-full hover:bg-purple-600 transition-colors text-sm"
+          >
+            🏎️ Race!
+          </a>
+        )}
+
+        {/* Reward Modal */}
+        {showRewardModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="bg-white rounded-3xl p-8 max-w-md mx-4 text-center shadow-2xl">
+              <div className="text-6xl mb-4">🎉🏎️🎉</div>
+              <h2 className="text-3xl font-bold text-purple-600 mb-4">
+                Congratulations!
+              </h2>
+              <p className="text-xl text-gray-700 mb-6">
+                You&apos;ve completed 10 questions! You&apos;ve unlocked a
+                special reward:
+              </p>
+              <div className="bg-purple-50 rounded-2xl p-6 mb-6">
+                <div className="text-4xl mb-2">🏎️</div>
+                <h3 className="text-2xl font-bold text-purple-800 mb-2">
+                  Car Racing Game!
+                </h3>
+                <p className="text-purple-700">
+                  Take a fun break and race through traffic!
+                </p>
+              </div>
+              <div className="flex gap-4 justify-center">
+                <a
+                  href="/car-racing"
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-3 px-6 rounded-full hover:scale-105 transition-transform"
+                >
+                  🏎️ Play Car Racing!
+                </a>
+                <button
+                  onClick={() => setShowRewardModal(false)}
+                  className="bg-gray-500 text-white font-bold py-3 px-6 rounded-full hover:bg-gray-600 transition-colors"
+                >
+                  Continue Math
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
