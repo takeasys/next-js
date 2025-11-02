@@ -330,18 +330,18 @@ export default function CarRacingGame() {
       const laneCenter = lane * LANE_WIDTH + LANE_WIDTH / 2;
 
       for (let y = 60; y < CANVAS_HEIGHT; y += arrowSpacing) {
-        // Draw arrow pointing down
+        // Draw arrow pointing up
         const arrowY = y;
         const arrowSize = 15;
 
         // Arrow shaft
-        ctx.fillRect(laneCenter - 2, arrowY, 4, arrowSize);
+        ctx.fillRect(laneCenter - 2, arrowY + 8, 4, arrowSize);
 
         // Arrow head (triangle)
         ctx.beginPath();
-        ctx.moveTo(laneCenter, arrowY + arrowSize + 8);
-        ctx.lineTo(laneCenter - 6, arrowY + arrowSize);
-        ctx.lineTo(laneCenter + 6, arrowY + arrowSize);
+        ctx.moveTo(laneCenter, arrowY);
+        ctx.lineTo(laneCenter - 6, arrowY + 8);
+        ctx.lineTo(laneCenter + 6, arrowY + 8);
         ctx.closePath();
         ctx.fill();
       }
