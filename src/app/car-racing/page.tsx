@@ -44,6 +44,7 @@ export default function CarRacingGame() {
   const [lastObstacleTime, setLastObstacleTime] = useState(0);
   const [gameSpeed, setGameSpeed] = useState(2);
   const [smokeParticles, setSmokeParticles] = useState<SmokeParticle[]>([]);
+  const [roadOffset, setRoadOffset] = useState(0);
 
   // Game constants
   const CANVAS_WIDTH = 800;
@@ -195,6 +196,9 @@ export default function CarRacingGame() {
         )
     );
 
+    // Update road offset for moving road effect
+    setRoadOffset((prev) => (prev + gameSpeed * 3) % 120); // Reset every 120 pixels to match arrow spacing
+
     // Generate obstacles (maximum 3 on road at same time)
     if (
       currentTime - lastObstacleTime > 1000 - gameSpeed * 80 &&
@@ -282,10 +286,11 @@ export default function CarRacingGame() {
     ctx.fillStyle = "#333";
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Draw lane lines
+    // Draw lane lines with moving effect
     ctx.strokeStyle = "#FFF";
     ctx.lineWidth = 3;
     ctx.setLineDash([20, 20]);
+    ctx.lineDashOffset = -roadOffset; // Animate the dash pattern
     for (let i = 1; i < ROAD_LANES; i++) {
       ctx.beginPath();
       ctx.moveTo(i * LANE_WIDTH, 0);
@@ -304,7 +309,7 @@ export default function CarRacingGame() {
     ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.stroke();
 
-    // Draw directional arrows on road
+    // Draw directional arrows on road with moving effect
     ctx.fillStyle = "#FFFFFF";
     ctx.strokeStyle = "#FFFFFF";
     ctx.lineWidth = 3;
@@ -313,7 +318,12 @@ export default function CarRacingGame() {
     for (let lane = 0; lane < ROAD_LANES; lane++) {
       const laneCenter = lane * LANE_WIDTH + LANE_WIDTH / 2;
 
-      for (let y = 60; y < CANVAS_HEIGHT; y += arrowSpacing) {
+      // Start from negative position to have arrows coming from top
+      for (
+        let y = -arrowSpacing + (roadOffset % arrowSpacing);
+        y < CANVAS_HEIGHT + arrowSpacing;
+        y += arrowSpacing
+      ) {
         // Draw arrow pointing up
         const arrowY = y;
         const arrowSize = 15;
@@ -648,7 +658,7 @@ export default function CarRacingGame() {
     });
 
     requestAnimationFrame(draw);
-  }, [car, obstacles, smokeParticles, LANE_WIDTH]);
+  }, [car, obstacles, smokeParticles, LANE_WIDTH, roadOffset]);
 
   // Touch event handlers
   const handleTouchStart = (e: React.TouchEvent) => {
