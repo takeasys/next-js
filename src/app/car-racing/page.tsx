@@ -362,13 +362,50 @@ export default function CarRacingGame() {
     ctx.fillStyle = "#1E3A8A";
     drawRoundedRect(car.x + 8, car.y + 55, car.width - 16, 12, 3);
 
-    // Headlights
+    // Headlights with light beams
+    // Draw light beams first (behind the car)
+    ctx.fillStyle = "rgba(255, 255, 200, 0.15)";
+    ctx.beginPath();
+    // Left headlight beam
+    ctx.moveTo(car.x + 12, car.y + 8);
+    ctx.lineTo(car.x + 5, car.y - 60);
+    ctx.lineTo(car.x + 19, car.y - 60);
+    ctx.closePath();
+    ctx.fill();
+
+    // Right headlight beam
+    ctx.beginPath();
+    ctx.moveTo(car.x + car.width - 12, car.y + 8);
+    ctx.lineTo(car.x + car.width - 19, car.y - 60);
+    ctx.lineTo(car.x + car.width - 5, car.y - 60);
+    ctx.closePath();
+    ctx.fill();
+
+    // Headlight outer glow
+    ctx.fillStyle = "rgba(251, 191, 36, 0.3)";
+    ctx.beginPath();
+    ctx.ellipse(car.x + 12, car.y + 8, 6, 5, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(car.x + car.width - 12, car.y + 8, 6, 5, 0, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Main headlights
     ctx.fillStyle = "#FBBF24";
     ctx.beginPath();
     ctx.ellipse(car.x + 12, car.y + 8, 4, 3, 0, 0, 2 * Math.PI);
     ctx.fill();
     ctx.beginPath();
     ctx.ellipse(car.x + car.width - 12, car.y + 8, 4, 3, 0, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Headlight center (bright white)
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.ellipse(car.x + 12, car.y + 8, 2, 1.5, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(car.x + car.width - 12, car.y + 8, 2, 1.5, 0, 0, 2 * Math.PI);
     ctx.fill();
 
     // Taillights
