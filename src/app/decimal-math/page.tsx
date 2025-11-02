@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Question {
   num1: number;
@@ -23,9 +23,16 @@ export default function DecimalMathTest() {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
 
   // Generate a new decimal math question
   const generateQuestion = () => {
+    // Clear existing timer
+    if (timerId) {
+      clearInterval(timerId);
+    }
+
     // Generate numbers with 1 decimal place (10.0 to 99.9)
     const num1 = Math.round((Math.random() * 89.9 + 10.0) * 10) / 10;
     const num2 = Math.round((Math.random() * 89.9 + 10.0) * 10) / 10;
@@ -43,6 +50,8 @@ export default function DecimalMathTest() {
       setUserAnswer("");
       setFeedback("");
       setIsCorrect(null);
+      setTimeLeft(15);
+      startTimer();
       return;
     }
 
@@ -50,6 +59,36 @@ export default function DecimalMathTest() {
     setUserAnswer("");
     setFeedback("");
     setIsCorrect(null);
+    setTimeLeft(15);
+    startTimer();
+  };
+
+  // Start timer
+  const startTimer = () => {
+    const newTimerId = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // Time's up - automatically check answer
+          handleTimeUp();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    setTimerId(newTimerId);
+  };
+
+  // Handle time up
+  const handleTimeUp = () => {
+    if (timerId) {
+      clearInterval(timerId);
+      setTimerId(null);
+    }
+    setIsCorrect(false);
+    setTotalQuestions((prev) => prev + 1);
+    setFeedback(
+      `⏰ Time's up! The answer was ${currentQuestion.answer}. Try the next one!`
+    );
   };
 
   // Start the game
@@ -62,6 +101,12 @@ export default function DecimalMathTest() {
 
   // Check the answer
   const checkAnswer = () => {
+    // Clear timer when answer is submitted
+    if (timerId) {
+      clearInterval(timerId);
+      setTimerId(null);
+    }
+
     const userNum = parseFloat(userAnswer);
     const correct = Math.abs(userNum - currentQuestion.answer) < 0.01; // Allow small floating point errors
 
@@ -79,6 +124,15 @@ export default function DecimalMathTest() {
       );
     }
   };
+
+  // Cleanup timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (timerId) {
+        clearInterval(timerId);
+      }
+    };
+  }, [timerId]);
 
   // Handle enter key press
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -120,21 +174,21 @@ export default function DecimalMathTest() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-400 via-teal-500 to-blue-500 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-6xl w-full h-[90vh]">
+    <div className="min-h-screen bg-gradient-to-br from-green-400 via-teal-500 to-blue-500 flex items-center justify-center p-2">
+      <div className="bg-white rounded-2xl shadow-2xl p-4 max-w-5xl w-full h-[80vh]">
         {!gameStarted ? (
           // Welcome Screen
           <div className="text-center h-full flex flex-col justify-center">
-            <div className="text-8xl mb-6">🔢</div>
-            <h1 className="text-4xl font-bold text-gray-800 mb-4">
+            <div className="text-5xl mb-3">🔢</div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">
               Decimal Math Fun!
             </h1>
-            <p className="text-xl text-gray-600 mb-8">
+            <p className="text-base text-gray-600 mb-4">
               Practice addition and subtraction with decimal numbers! 🌟
             </p>
             <button
               onClick={startGame}
-              className="bg-gradient-to-r from-green-400 to-teal-500 text-white text-2xl font-bold py-4 px-8 rounded-full hover:scale-105 transform transition-all duration-200 shadow-lg"
+              className="bg-gradient-to-r from-green-400 to-teal-500 text-white text-lg font-bold py-2 px-4 rounded-full hover:scale-105 transform transition-all duration-200 shadow-lg"
             >
               Start Learning! 🚀
             </button>
@@ -143,40 +197,56 @@ export default function DecimalMathTest() {
           // Game Screen - Left/Right Layout
           <div className="h-full flex">
             {/* Left Side - Question and Input */}
-            <div className="flex-1 flex flex-col justify-center items-center pr-8">
+            <div className="flex-1 flex flex-col justify-center items-center pr-4">
               {/* Score Display */}
-              <div className="flex justify-center items-center gap-4 mb-8">
-                <div className="bg-yellow-100 rounded-full px-4 py-2">
-                  <span className="text-lg font-bold text-yellow-800">
+              <div className="flex justify-center items-center gap-2 mb-4">
+                <div className="bg-yellow-100 rounded-full px-2 py-1">
+                  <span className="text-sm font-bold text-yellow-800">
                     Score: {score}/{totalQuestions}
                   </span>
                 </div>
-                <div className="bg-green-100 rounded-full px-4 py-2">
-                  <span className="text-lg font-bold text-green-800">
+                <div className="bg-green-100 rounded-full px-2 py-1">
+                  <span className="text-sm font-bold text-green-800">
                     {getPercentage()}% 🎯
                   </span>
                 </div>
+                {/* Timer Display */}
+                {isCorrect === null && (
+                  <div
+                    className={`rounded-full px-2 py-1 ${
+                      timeLeft <= 5 ? "bg-red-100" : "bg-blue-100"
+                    }`}
+                  >
+                    <span
+                      className={`text-sm font-bold ${
+                        timeLeft <= 5 ? "text-red-800" : "text-blue-800"
+                      }`}
+                    >
+                      ⏰ {timeLeft}s
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Question */}
-              <div className="mb-8 text-center">
-                <h2 className="text-3xl font-bold text-gray-700 mb-6">
+              <div className="mb-4 text-center">
+                <h2 className="text-xl font-bold text-gray-700 mb-2">
                   Calculate:
                 </h2>
                 {/* Column Format Display */}
-                <div className="inline-block bg-gray-50 rounded-2xl p-8 border-4 border-teal-200">
-                  <div className="font-mono space-y-2">
+                <div className="inline-block bg-gray-50 rounded-xl p-4 border-2 border-teal-200">
+                  <div className="font-mono space-y-1">
                     {/* Top number - right aligned with fixed width */}
                     <div
-                      className="text-6xl font-bold text-gray-800 text-right"
-                      style={{ width: "280px" }}
+                      className="text-4xl font-bold text-gray-800 text-right"
+                      style={{ width: "180px" }}
                     >
                       {currentQuestion.num1.toFixed(1)}
                     </div>
                     {/* Operation and second number - aligned to decimal */}
                     <div
-                      className="text-6xl font-bold text-gray-800 flex items-center"
-                      style={{ width: "280px" }}
+                      className="text-4xl font-bold text-gray-800 flex items-center"
+                      style={{ width: "180px" }}
                     >
                       <span className="text-teal-600 mr-4">
                         {currentQuestion.operation}
@@ -187,13 +257,13 @@ export default function DecimalMathTest() {
                     </div>
                     {/* Line separator */}
                     <div
-                      className="border-b-4 border-gray-800"
-                      style={{ width: "280px" }}
+                      className="border-b-2 border-gray-800"
+                      style={{ width: "180px" }}
                     ></div>
                     {/* Answer area */}
                     <div
-                      className="text-4xl font-bold text-gray-400 pt-2 text-right"
-                      style={{ width: "280px" }}
+                      className="text-2xl font-bold text-gray-400 pt-1 text-right"
+                      style={{ width: "180px" }}
                     >
                       ?
                     </div>
@@ -202,31 +272,31 @@ export default function DecimalMathTest() {
               </div>
 
               {/* Answer Input */}
-              <div className="mb-8">
+              <div className="mb-4">
                 <input
                   type="text"
                   value={userAnswer}
                   readOnly
-                  className="text-5xl text-center border-4 border-teal-300 rounded-2xl px-8 py-6 w-72 focus:border-teal-500 focus:outline-none text-gray-800 font-bold bg-white cursor-default"
+                  className="text-3xl text-center border-2 border-teal-300 rounded-xl px-4 py-2 w-48 focus:border-teal-500 focus:outline-none text-gray-800 font-bold bg-white cursor-default"
                   placeholder="0.0"
                   disabled={isCorrect !== null}
                 />
               </div>
 
               {/* Action Buttons */}
-              <div className="mb-6">
+              <div className="mb-3">
                 {isCorrect === null ? (
                   <button
                     onClick={checkAnswer}
                     disabled={userAnswer.trim() === ""}
-                    className="bg-gradient-to-r from-teal-500 to-blue-600 text-white text-2xl font-bold py-4 px-10 rounded-full hover:scale-105 transform transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-gradient-to-r from-teal-500 to-blue-600 text-white text-lg font-bold py-2 px-5 rounded-full hover:scale-105 transform transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Check Answer! ✨
                   </button>
                 ) : (
                   <button
                     onClick={nextQuestion}
-                    className="bg-gradient-to-r from-green-500 to-teal-600 text-white text-2xl font-bold py-4 px-10 rounded-full hover:scale-105 transform transition-all duration-200 shadow-lg"
+                    className="bg-gradient-to-r from-green-500 to-teal-600 text-white text-lg font-bold py-2 px-5 rounded-full hover:scale-105 transform transition-all duration-200 shadow-lg"
                   >
                     Next Question! 🎈
                   </button>
@@ -236,7 +306,7 @@ export default function DecimalMathTest() {
               {/* Feedback */}
               {feedback && (
                 <div
-                  className={`text-2xl font-bold mb-4 ${
+                  className={`text-lg font-bold mb-2 ${
                     isCorrect ? "text-green-600" : "text-orange-600"
                   }`}
                 >
@@ -246,19 +316,19 @@ export default function DecimalMathTest() {
             </div>
 
             {/* Right Side - Number Pad */}
-            <div className="flex-1 flex flex-col justify-center items-center pl-8 border-l-2 border-gray-200">
+            <div className="flex-1 flex flex-col justify-center items-center pl-4 border-l-2 border-gray-200">
               {isCorrect === null ? (
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-700 mb-6 text-center">
+                  <h3 className="text-lg font-bold text-gray-700 mb-2 text-center">
                     Tap to enter your answer:
                   </h3>
-                  <div className="grid grid-cols-3 gap-4 max-w-sm">
+                  <div className="grid grid-cols-3 gap-2 max-w-xs">
                     {/* Numbers 1-9 */}
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                       <button
                         key={num}
                         onClick={() => handleNumberPadInput(num.toString())}
-                        className="bg-gradient-to-b from-teal-400 to-teal-600 text-white text-3xl font-bold py-6 px-6 rounded-2xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
+                        className="bg-gradient-to-b from-teal-400 to-teal-600 text-white text-xl font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
                       >
                         {num}
                       </button>
@@ -267,30 +337,30 @@ export default function DecimalMathTest() {
                     {/* Bottom row: Clear, 0, Decimal Point */}
                     <button
                       onClick={() => handleNumberPadInput("clear")}
-                      className="bg-gradient-to-b from-red-400 to-red-600 text-white text-xl font-bold py-6 px-6 rounded-2xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
+                      className="bg-gradient-to-b from-red-400 to-red-600 text-white text-base font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
                     >
                       Clear
                     </button>
 
                     <button
                       onClick={() => handleNumberPadInput("0")}
-                      className="bg-gradient-to-b from-teal-400 to-teal-600 text-white text-3xl font-bold py-6 px-6 rounded-2xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
+                      className="bg-gradient-to-b from-teal-400 to-teal-600 text-white text-xl font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
                     >
                       0
                     </button>
 
                     <button
                       onClick={() => handleNumberPadInput(".")}
-                      className="bg-gradient-to-b from-blue-400 to-blue-600 text-white text-3xl font-bold py-6 px-6 rounded-2xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
+                      className="bg-gradient-to-b from-blue-400 to-blue-600 text-white text-xl font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
                     >
                       .
                     </button>
 
                     {/* Backspace button on new row */}
-                    <div className="col-span-3 mt-2">
+                    <div className="col-span-3 mt-1">
                       <button
                         onClick={() => handleNumberPadInput("backspace")}
-                        className="bg-gradient-to-b from-orange-400 to-orange-600 text-white text-2xl font-bold py-4 px-8 rounded-2xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95 w-full"
+                        className="bg-gradient-to-b from-orange-400 to-orange-600 text-white text-base font-bold py-2 px-4 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95 w-full"
                       >
                         ⌫ Backspace
                       </button>
@@ -299,8 +369,8 @@ export default function DecimalMathTest() {
                 </div>
               ) : (
                 <div className="text-center">
-                  <div className="text-6xl mb-4">{isCorrect ? "🎉" : "🤔"}</div>
-                  <p className="text-2xl text-gray-600">
+                  <div className="text-4xl mb-2">{isCorrect ? "🎉" : "🤔"}</div>
+                  <p className="text-lg text-gray-600">
                     {isCorrect ? "Perfect!" : "Try the next one!"}
                   </p>
                 </div>
@@ -312,29 +382,14 @@ export default function DecimalMathTest() {
         {/* Celebration Animation */}
         {showCelebration && (
           <div className="fixed inset-0 pointer-events-none">
-            <div className="animate-bounce text-8xl absolute top-1/4 left-1/4">
+            <div className="animate-bounce text-5xl absolute top-1/4 left-1/4">
               🎉
             </div>
-            <div className="animate-bounce text-8xl absolute top-1/3 right-1/4 animation-delay-200">
+            <div className="animate-bounce text-5xl absolute top-1/3 right-1/4 animation-delay-200">
               ⭐
             </div>
-            <div className="animate-bounce text-8xl absolute bottom-1/3 left-1/3 animation-delay-400">
+            <div className="animate-bounce text-5xl absolute bottom-1/3 left-1/3 animation-delay-400">
               🎊
-            </div>
-          </div>
-        )}
-
-        {/* Encouragement Messages */}
-        {gameStarted && totalQuestions > 0 && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-            <div className="bg-yellow-50 rounded-2xl px-6 py-3">
-              <p className="text-lg text-yellow-800 text-center">
-                {getPercentage() >= 80
-                  ? "You&apos;re a decimal master! 🌟"
-                  : getPercentage() >= 60
-                  ? "Great decimal work! Keep it up! 💪"
-                  : "You&apos;re learning decimals so well! 📚"}
-              </p>
             </div>
           </div>
         )}
