@@ -45,6 +45,9 @@ export default function CarRacingGame() {
   const OBSTACLE_HEIGHT = 80;
   const ROAD_LANES = 6;
   const LANE_WIDTH = CANVAS_WIDTH / ROAD_LANES;
+  const SPEED_INCREMENT = 0.5;
+  const SPEED_INCREMENT_INTERVAL = 50;
+  const MAX_GAME_SPEED = 12;
 
   // Touch controls
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -241,8 +244,10 @@ export default function CarRacingGame() {
     // Update score and speed
     setScore((prevScore) => {
       const newScore = prevScore + 1;
-      if (newScore % 50 === 0) {
-        setGameSpeed((prev) => Math.min(prev + 0.5, 8));
+      if (newScore % SPEED_INCREMENT_INTERVAL === 0) {
+        setGameSpeed((prev) =>
+          Math.min(prev + SPEED_INCREMENT, MAX_GAME_SPEED)
+        );
       }
       return newScore;
     });
