@@ -16,9 +16,16 @@ interface Obstacle {
   height: number;
   baseSpeed: number; // Store base speed multiplier instead of absolute speed
   color: string; // Fixed color for each obstacle
-  targetLane: number; // Current target lane (0-5)
-  laneChangeSpeed: number; // Speed of lane changing
-  lastLaneChangeTime: number; // When last lane change occurred
+}
+
+interface SmokeParticle {
+  x: number;
+  y: number;
+  size: number;
+  opacity: number;
+  velocityX: number;
+  velocityY: number;
+  life: number;
 }
 
 export default function CarRacingGame() {
@@ -36,6 +43,7 @@ export default function CarRacingGame() {
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [lastObstacleTime, setLastObstacleTime] = useState(0);
   const [gameSpeed, setGameSpeed] = useState(2);
+  const [smokeParticles, setSmokeParticles] = useState<SmokeParticle[]>([]);
 
   // Game constants
   const CANVAS_WIDTH = 800;
@@ -46,7 +54,7 @@ export default function CarRacingGame() {
   const ROAD_LANES = 6;
   const LANE_WIDTH = CANVAS_WIDTH / ROAD_LANES;
   const SPEED_INCREMENT = 0.5;
-  const SPEED_INCREMENT_INTERVAL = 50;
+  const SPEED_INCREMENT_INTERVAL = 100;
   const MAX_GAME_SPEED = 12;
 
   // Touch controls
@@ -100,9 +108,6 @@ export default function CarRacingGame() {
           height: OBSTACLE_HEIGHT,
           baseSpeed: 4 + Math.random() * 3, // Faster: 4x to 7x the current gameSpeed
           color: randomColor, // Assign a fixed random color
-          targetLane: lane, // Start in the assigned lane
-          laneChangeSpeed: 2 + Math.random() * 3, // Random lane change speed
-          lastLaneChangeTime: Date.now(), // Initialize lane change timer
         };
 
         // Check if this obstacle overlaps with any existing obstacles
@@ -159,6 +164,37 @@ export default function CarRacingGame() {
     // Update car position
     updateCarPosition();
 
+    // Generate smoke particles behind the car
+    if (Math.random() < 0.7) {
+      // 70% chance to generate smoke each frame
+      const newParticle: SmokeParticle = {
+        x: car.x + car.width / 2 + (Math.random() - 0.5) * 20, // Random spread around car center
+        y: car.y + car.height - 5, // Near the back of the car
+        size: 3 + Math.random() * 4, // Random size between 3-7
+        opacity: 0.3 + Math.random() * 0.4, // Random opacity 0.3-0.7
+        velocityX: (Math.random() - 0.5) * 2, // Slight horizontal drift
+        velocityY: 1 + Math.random() * 2, // Move downward/backward
+        life: 1.0, // Full life at start
+      };
+      setSmokeParticles((prev) => [...prev, newParticle]);
+    }
+
+    // Update smoke particles
+    setSmokeParticles((prev) =>
+      prev
+        .map((particle) => ({
+          ...particle,
+          x: particle.x + particle.velocityX,
+          y: particle.y + particle.velocityY,
+          size: particle.size * 1.02, // Gradually expand
+          opacity: particle.opacity * 0.96, // Fade out
+          life: particle.life - 0.02, // Decrease life
+        }))
+        .filter(
+          (particle) => particle.life > 0 && particle.y < CANVAS_HEIGHT + 20
+        )
+    );
+
     // Generate obstacles (maximum 3 on road at same time)
     if (
       currentTime - lastObstacleTime > 1000 - gameSpeed * 80 &&
@@ -174,62 +210,11 @@ export default function CarRacingGame() {
 
     // Update obstacles
     setObstacles((prevObstacles) => {
-      const currentTime = Date.now();
-
       return prevObstacles
-        .map((obstacle) => {
-          let updatedObstacle = {
-            ...obstacle,
-            y: obstacle.y + obstacle.baseSpeed * gameSpeed, // Use current gameSpeed with obstacle's baseSpeed
-          };
-
-          // Lane changing logic
-          const timeSinceLastChange = currentTime - obstacle.lastLaneChangeTime;
-          const shouldChangeLanes =
-            timeSinceLastChange > 2000 + Math.random() * 3000; // Change lanes every 2-5 seconds
-
-          if (shouldChangeLanes && obstacle.y > 100) {
-            // Only change lanes after obstacle is well on screen
-            // Choose a new target lane (different from current)
-            const possibleLanes = [];
-            for (let i = 0; i < ROAD_LANES; i++) {
-              if (i !== obstacle.targetLane) {
-                possibleLanes.push(i);
-              }
-            }
-
-            if (possibleLanes.length > 0) {
-              const newTargetLane =
-                possibleLanes[Math.floor(Math.random() * possibleLanes.length)];
-              updatedObstacle = {
-                ...updatedObstacle,
-                targetLane: newTargetLane,
-                lastLaneChangeTime: currentTime,
-              };
-            }
-          }
-
-          // Smoothly move toward target lane
-          const targetX =
-            updatedObstacle.targetLane * LANE_WIDTH +
-            (LANE_WIDTH - OBSTACLE_WIDTH) / 2;
-          const deltaX = targetX - updatedObstacle.x;
-
-          if (Math.abs(deltaX) > 1) {
-            const moveDirection = deltaX > 0 ? 1 : -1;
-            updatedObstacle.x +=
-              moveDirection * updatedObstacle.laneChangeSpeed;
-
-            // Don't overshoot the target
-            if (moveDirection > 0 && updatedObstacle.x > targetX) {
-              updatedObstacle.x = targetX;
-            } else if (moveDirection < 0 && updatedObstacle.x < targetX) {
-              updatedObstacle.x = targetX;
-            }
-          }
-
-          return updatedObstacle;
-        })
+        .map((obstacle) => ({
+          ...obstacle,
+          y: obstacle.y + obstacle.baseSpeed * gameSpeed, // Use current gameSpeed with obstacle's baseSpeed
+        }))
         .filter((obstacle) => obstacle.y < CANVAS_HEIGHT + OBSTACLE_HEIGHT);
     });
 
@@ -262,7 +247,6 @@ export default function CarRacingGame() {
     gameSpeed,
     updateCarPosition,
     generateObstacle,
-    LANE_WIDTH,
   ]);
 
   // Drawing function
@@ -346,6 +330,14 @@ export default function CarRacingGame() {
         ctx.fill();
       }
     }
+
+    // Draw smoke particles behind the player car
+    smokeParticles.forEach((particle) => {
+      ctx.fillStyle = `rgba(100, 100, 100, ${particle.opacity})`;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
 
     // Draw player car (more realistic)
     const carCenterX = car.x + car.width / 2;
@@ -619,7 +611,7 @@ export default function CarRacingGame() {
     });
 
     requestAnimationFrame(draw);
-  }, [car, obstacles, LANE_WIDTH]);
+  }, [car, obstacles, smokeParticles, LANE_WIDTH]);
 
   // Touch event handlers
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -809,6 +801,7 @@ export default function CarRacingGame() {
     setGameSpeed(2);
     setCar({ x: 375, y: 500, width: 50, height: 80 });
     setObstacles([]);
+    setSmokeParticles([]);
     setLastObstacleTime(Date.now());
   };
 
@@ -819,6 +812,7 @@ export default function CarRacingGame() {
     setGameSpeed(2);
     setCar({ x: 375, y: 500, width: 50, height: 80 });
     setObstacles([]);
+    setSmokeParticles([]);
     setLeftPressed(false);
     setRightPressed(false);
     setIsDragging(false);
