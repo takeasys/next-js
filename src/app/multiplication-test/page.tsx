@@ -24,8 +24,8 @@ export default function MultiplicationTest() {
 
   // Generate a new multiplication question
   const generateQuestion = () => {
-    const num1 = Math.floor(Math.random() * 10) + 2; // 2-11
-    const num2 = Math.floor(Math.random() * 10) + 2; // 2-11
+    const num1 = Math.floor(Math.random() * 9) + 2; // 2-10
+    const num2 = Math.floor(Math.random() * 9) + 2; // 2-10
     const answer = num1 * num2;
 
     setCurrentQuestion({ num1, num2, answer });
