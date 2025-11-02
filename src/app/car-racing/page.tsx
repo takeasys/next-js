@@ -16,6 +16,9 @@ interface Obstacle {
   height: number;
   baseSpeed: number; // Store base speed multiplier instead of absolute speed
   color: string; // Fixed color for each obstacle
+  targetLane: number; // Current target lane (0-5)
+  laneChangeSpeed: number; // Speed of lane changing
+  lastLaneChangeTime: number; // When last lane change occurred
 }
 
 export default function CarRacingGame() {
@@ -94,6 +97,9 @@ export default function CarRacingGame() {
           height: OBSTACLE_HEIGHT,
           baseSpeed: 4 + Math.random() * 3, // Faster: 4x to 7x the current gameSpeed
           color: randomColor, // Assign a fixed random color
+          targetLane: lane, // Start in the assigned lane
+          laneChangeSpeed: 2 + Math.random() * 3, // Random lane change speed
+          lastLaneChangeTime: Date.now(), // Initialize lane change timer
         };
 
         // Check if this obstacle overlaps with any existing obstacles
@@ -165,11 +171,62 @@ export default function CarRacingGame() {
 
     // Update obstacles
     setObstacles((prevObstacles) => {
+      const currentTime = Date.now();
+
       return prevObstacles
-        .map((obstacle) => ({
-          ...obstacle,
-          y: obstacle.y + obstacle.baseSpeed * gameSpeed, // Use current gameSpeed with obstacle's baseSpeed
-        }))
+        .map((obstacle) => {
+          let updatedObstacle = {
+            ...obstacle,
+            y: obstacle.y + obstacle.baseSpeed * gameSpeed, // Use current gameSpeed with obstacle's baseSpeed
+          };
+
+          // Lane changing logic
+          const timeSinceLastChange = currentTime - obstacle.lastLaneChangeTime;
+          const shouldChangeLanes =
+            timeSinceLastChange > 2000 + Math.random() * 3000; // Change lanes every 2-5 seconds
+
+          if (shouldChangeLanes && obstacle.y > 100) {
+            // Only change lanes after obstacle is well on screen
+            // Choose a new target lane (different from current)
+            const possibleLanes = [];
+            for (let i = 0; i < ROAD_LANES; i++) {
+              if (i !== obstacle.targetLane) {
+                possibleLanes.push(i);
+              }
+            }
+
+            if (possibleLanes.length > 0) {
+              const newTargetLane =
+                possibleLanes[Math.floor(Math.random() * possibleLanes.length)];
+              updatedObstacle = {
+                ...updatedObstacle,
+                targetLane: newTargetLane,
+                lastLaneChangeTime: currentTime,
+              };
+            }
+          }
+
+          // Smoothly move toward target lane
+          const targetX =
+            updatedObstacle.targetLane * LANE_WIDTH +
+            (LANE_WIDTH - OBSTACLE_WIDTH) / 2;
+          const deltaX = targetX - updatedObstacle.x;
+
+          if (Math.abs(deltaX) > 1) {
+            const moveDirection = deltaX > 0 ? 1 : -1;
+            updatedObstacle.x +=
+              moveDirection * updatedObstacle.laneChangeSpeed;
+
+            // Don't overshoot the target
+            if (moveDirection > 0 && updatedObstacle.x > targetX) {
+              updatedObstacle.x = targetX;
+            } else if (moveDirection < 0 && updatedObstacle.x < targetX) {
+              updatedObstacle.x = targetX;
+            }
+          }
+
+          return updatedObstacle;
+        })
         .filter((obstacle) => obstacle.y < CANVAS_HEIGHT + OBSTACLE_HEIGHT);
     });
 
@@ -200,6 +257,7 @@ export default function CarRacingGame() {
     gameSpeed,
     updateCarPosition,
     generateObstacle,
+    LANE_WIDTH,
   ]);
 
   // Drawing function
