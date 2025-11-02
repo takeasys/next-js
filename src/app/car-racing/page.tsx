@@ -15,6 +15,7 @@ interface Obstacle {
   width: number;
   height: number;
   baseSpeed: number; // Store base speed multiplier instead of absolute speed
+  color: string; // Fixed color for each obstacle
 }
 
 export default function CarRacingGame() {
@@ -52,18 +53,64 @@ export default function CarRacingGame() {
   const [dragStartX, setDragStartX] = useState<number | null>(null);
   const [dragStartCarX, setDragStartCarX] = useState<number | null>(null);
 
-  // Generate random obstacle
-  const generateObstacle = useCallback((): Obstacle => {
-    const lane = Math.floor(Math.random() * ROAD_LANES);
-    const x = lane * LANE_WIDTH + (LANE_WIDTH - OBSTACLE_WIDTH) / 2;
-    return {
-      x,
-      y: -OBSTACLE_HEIGHT,
-      width: OBSTACLE_WIDTH,
-      height: OBSTACLE_HEIGHT,
-      baseSpeed: 2 + Math.random() * 2, // Base multiplier: 2x to 4x the current gameSpeed
-    };
-  }, [LANE_WIDTH]);
+  // Check if two obstacles overlap
+  const obstaclesOverlap = (
+    obstacle1: Obstacle,
+    obstacle2: Obstacle
+  ): boolean => {
+    return (
+      obstacle1.x < obstacle2.x + obstacle2.width &&
+      obstacle1.x + obstacle1.width > obstacle2.x &&
+      obstacle1.y < obstacle2.y + obstacle2.height &&
+      obstacle1.y + obstacle1.height > obstacle2.y
+    );
+  };
+
+  // Generate random obstacle without overlapping
+  const generateObstacle = useCallback(
+    (existingObstacles: Obstacle[]): Obstacle | null => {
+      const maxAttempts = 20; // Prevent infinite loops
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const lane = Math.floor(Math.random() * ROAD_LANES);
+        const x = lane * LANE_WIDTH + (LANE_WIDTH - OBSTACLE_WIDTH) / 2;
+
+        // Available car colors
+        const carColors = [
+          "#1F2937", // Dark gray
+          "#059669", // Green
+          "#7C3AED", // Purple
+          "#DC2626", // Red
+          "#EA580C", // Orange
+          "#0284C7", // Blue
+        ];
+        const randomColor =
+          carColors[Math.floor(Math.random() * carColors.length)];
+
+        const newObstacle: Obstacle = {
+          x,
+          y: -OBSTACLE_HEIGHT,
+          width: OBSTACLE_WIDTH,
+          height: OBSTACLE_HEIGHT,
+          baseSpeed: 4 + Math.random() * 3, // Faster: 4x to 7x the current gameSpeed
+          color: randomColor, // Assign a fixed random color
+        };
+
+        // Check if this obstacle overlaps with any existing obstacles
+        const hasOverlap = existingObstacles.some((existingObstacle) =>
+          obstaclesOverlap(newObstacle, existingObstacle)
+        );
+
+        if (!hasOverlap) {
+          return newObstacle;
+        }
+      }
+
+      // If we couldn't find a non-overlapping position after maxAttempts, return null
+      return null;
+    },
+    [LANE_WIDTH]
+  );
 
   // Collision detection
   const checkCollision = (car: Car, obstacle: Obstacle): boolean => {
@@ -103,10 +150,16 @@ export default function CarRacingGame() {
     // Update car position
     updateCarPosition();
 
-    // Generate obstacles
-    if (currentTime - lastObstacleTime > 2500 - gameSpeed * 50) {
-      // Less frequent: longer base interval, slower reduction
-      setObstacles((prev) => [...prev, generateObstacle()]);
+    // Generate obstacles (maximum 3 on road at same time)
+    if (
+      currentTime - lastObstacleTime > 1000 - gameSpeed * 80 &&
+      obstacles.length < 5
+    ) {
+      // More frequent: shorter base interval, faster reduction, max 5 obstacles
+      const newObstacle = generateObstacle(obstacles);
+      if (newObstacle) {
+        setObstacles((prev) => [...prev, newObstacle]);
+      }
       setLastObstacleTime(currentTime);
     }
 
@@ -131,7 +184,7 @@ export default function CarRacingGame() {
     // Update score and speed
     setScore((prevScore) => {
       const newScore = prevScore + 1;
-      if (newScore % 500 === 0) {
+      if (newScore % 50 === 0) {
         setGameSpeed((prev) => Math.min(prev + 0.5, 8));
       }
       return newScore;
@@ -326,19 +379,10 @@ export default function CarRacingGame() {
     );
     ctx.fill();
 
-    // Draw obstacle cars (more realistic with varied colors)
-    obstacles.forEach((obstacle, index) => {
-      // Different car colors based on index
-      const carColors = [
-        "#1F2937",
-        "#059669",
-        "#7C3AED",
-        "#DC2626",
-        "#EA580C",
-        "#0284C7",
-      ];
-      const bodyColor = carColors[index % carColors.length];
-      const darkerColor = index % 2 === 0 ? "#374151" : bodyColor;
+    // Draw obstacle cars (with fixed colors)
+    obstacles.forEach((obstacle) => {
+      const bodyColor = obstacle.color;
+      const darkerColor = "#374151"; // Consistent darker color for hood
 
       // Car body (rounded rectangle)
       ctx.fillStyle = bodyColor;
