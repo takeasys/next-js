@@ -17,13 +17,20 @@ export default function DecimalMathTest() {
     answer: 0,
   });
   const [userAnswer, setUserAnswer] = useState<string>("");
+  const [answerDigits, setAnswerDigits] = useState<{ [key: string]: string }>({
+    hundreds: "",
+    tens: "",
+    ones: "",
+    decimal: "",
+  });
+  const [selectedPosition, setSelectedPosition] = useState<string>("decimal");
   const [score, setScore] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [feedback, setFeedback] = useState<string>("");
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(15);
+  const [timeLeft, setTimeLeft] = useState(30);
   const [timerId, setTimerId] = useState<NodeJS.Timeout | null>(null);
 
   // Generate a new decimal math question
@@ -48,18 +55,22 @@ export default function DecimalMathTest() {
       answer = Math.round((larger - smaller) * 10) / 10;
       setCurrentQuestion({ num1: larger, num2: smaller, operation, answer });
       setUserAnswer("");
+      setAnswerDigits({ hundreds: "", tens: "", ones: "", decimal: "" });
+      setSelectedPosition("decimal");
       setFeedback("");
       setIsCorrect(null);
-      setTimeLeft(15);
+      setTimeLeft(30);
       startTimer();
       return;
     }
 
     setCurrentQuestion({ num1, num2, operation, answer });
     setUserAnswer("");
+    setAnswerDigits({ hundreds: "", tens: "", ones: "", decimal: "" });
+    setSelectedPosition("decimal");
     setFeedback("");
     setIsCorrect(null);
-    setTimeLeft(15);
+    setTimeLeft(30);
     startTimer();
   };
 
@@ -141,25 +152,56 @@ export default function DecimalMathTest() {
     }
   };
 
-  // Handle number pad input
-  const handleNumberPadInput = (input: string) => {
-    if (isCorrect !== null) return; // Don't allow input after answer is checked
+  // Build answer string from digit positions
+  const buildAnswerString = (digits: { [key: string]: string }) => {
+    const { hundreds, tens, ones, decimal } = digits;
+    let result = "";
 
-    if (input === "clear") {
-      setUserAnswer("");
-    } else if (input === "backspace") {
-      setUserAnswer((prev) => prev.slice(0, -1));
-    } else if (input === ".") {
-      // Only allow one decimal point
-      if (!userAnswer.includes(".") && userAnswer.length > 0) {
-        setUserAnswer((prev) => prev + input);
-      }
-    } else {
-      // Limit to reasonable number length (e.g., 199.8)
-      if (userAnswer.length < 6) {
-        setUserAnswer((prev) => prev + input);
-      }
+    // Add whole number part
+    if (hundreds) result += hundreds;
+    if (tens) result += tens;
+    if (ones) result += ones;
+
+    // If no whole number digits, add "0"
+    if (!hundreds && !tens && !ones) result = "0";
+
+    // Add decimal part
+    if (decimal) {
+      result += "." + decimal;
     }
+
+    return result;
+  };
+
+  // Handle number pad input
+  const handleNumberPadInput = (value: string) => {
+    if (value === "clear") {
+      setAnswerDigits({ hundreds: "", tens: "", ones: "", decimal: "" });
+      setUserAnswer("");
+    } else if (value === "backspace") {
+      // Clear only the currently selected position
+      setAnswerDigits((prev) => ({
+        ...prev,
+        [selectedPosition]: "",
+      }));
+    } else {
+      // Add digit to the currently selected position
+      setAnswerDigits((prev) => ({
+        ...prev,
+        [selectedPosition]: value,
+      }));
+    }
+  };
+
+  // Rebuild userAnswer whenever answerDigits change
+  useEffect(() => {
+    const newAnswerString = buildAnswerString(answerDigits);
+    setUserAnswer(newAnswerString);
+  }, [answerDigits]);
+
+  // Handle position selection
+  const handlePositionSelect = (position: string) => {
+    setSelectedPosition(position);
   };
 
   // Next question
@@ -271,16 +313,70 @@ export default function DecimalMathTest() {
                 </div>
               </div>
 
-              {/* Answer Input */}
+              {/* Answer Input with Clickable Position Selector */}
               <div className="mb-4">
-                <input
-                  type="text"
-                  value={userAnswer}
-                  readOnly
-                  className="text-3xl text-center border-2 border-teal-300 rounded-xl px-4 py-2 w-48 focus:border-teal-500 focus:outline-none text-gray-800 font-bold bg-white cursor-default"
-                  placeholder="0.0"
-                  disabled={isCorrect !== null}
-                />
+                <div className="mb-3">
+                  <p className="text-sm font-bold text-gray-600 mb-2 text-center">
+                    Click on a digit position to select where to enter:
+                  </p>
+                  <div className="text-xs text-gray-500 text-center mb-2">
+                    <span className="text-purple-600">■ Hundreds</span> |
+                    <span className="text-blue-600"> ■ Tens</span> |
+                    <span className="text-green-600"> ■ Ones</span> |
+                    <span className="text-orange-600"> ■ Tenths</span>
+                  </div>
+                </div>
+
+                {/* Clickable Answer Display */}
+                <div className="flex justify-center items-center">
+                  <div className="bg-white border-2 border-teal-300 rounded-xl px-4 py-2 font-mono text-3xl font-bold text-gray-800">
+                    <button
+                      onClick={() => handlePositionSelect("hundreds")}
+                      className={`px-1 rounded transition-all duration-200 hover:scale-110 ${
+                        selectedPosition === "hundreds"
+                          ? "bg-purple-200 border-2 border-purple-500"
+                          : "hover:bg-purple-100"
+                      }`}
+                      disabled={isCorrect !== null}
+                    >
+                      {answerDigits.hundreds || "_"}
+                    </button>
+                    <button
+                      onClick={() => handlePositionSelect("tens")}
+                      className={`px-1 rounded transition-all duration-200 hover:scale-110 ${
+                        selectedPosition === "tens"
+                          ? "bg-blue-200 border-2 border-blue-500"
+                          : "hover:bg-blue-100"
+                      }`}
+                      disabled={isCorrect !== null}
+                    >
+                      {answerDigits.tens || "_"}
+                    </button>
+                    <button
+                      onClick={() => handlePositionSelect("ones")}
+                      className={`px-1 rounded transition-all duration-200 hover:scale-110 ${
+                        selectedPosition === "ones"
+                          ? "bg-green-200 border-2 border-green-500"
+                          : "hover:bg-green-100"
+                      }`}
+                      disabled={isCorrect !== null}
+                    >
+                      {answerDigits.ones || "_"}
+                    </button>
+                    <span className="text-gray-600">.</span>
+                    <button
+                      onClick={() => handlePositionSelect("decimal")}
+                      className={`px-1 rounded transition-all duration-200 hover:scale-110 ${
+                        selectedPosition === "decimal"
+                          ? "bg-orange-200 border-2 border-orange-500"
+                          : "hover:bg-orange-100"
+                      }`}
+                      disabled={isCorrect !== null}
+                    >
+                      {answerDigits.decimal || "_"}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -320,11 +416,35 @@ export default function DecimalMathTest() {
               {isCorrect === null ? (
                 <div>
                   <h3 className="text-lg font-bold text-gray-700 mb-2 text-center">
-                    Tap to enter your answer:
+                    Enter digit for selected position:
                   </h3>
+                  <div className="mb-2 text-center">
+                    <span className="text-sm text-gray-600">
+                      Currently entering:{" "}
+                    </span>
+                    <span
+                      className={`text-sm font-bold ${
+                        selectedPosition === "hundreds"
+                          ? "text-purple-600"
+                          : selectedPosition === "tens"
+                          ? "text-blue-600"
+                          : selectedPosition === "ones"
+                          ? "text-green-600"
+                          : "text-orange-600"
+                      }`}
+                    >
+                      {selectedPosition === "hundreds"
+                        ? "Hundreds (100s)"
+                        : selectedPosition === "tens"
+                        ? "Tens (10s)"
+                        : selectedPosition === "ones"
+                        ? "Ones (1s)"
+                        : "Tenths (0.1s)"}
+                    </span>
+                  </div>
                   <div className="grid grid-cols-3 gap-2 max-w-xs">
-                    {/* Numbers 1-9 */}
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                    {/* Numbers 0-9 */}
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num) => (
                       <button
                         key={num}
                         onClick={() => handleNumberPadInput(num.toString())}
@@ -334,37 +454,20 @@ export default function DecimalMathTest() {
                       </button>
                     ))}
 
-                    {/* Bottom row: Clear, 0, Decimal Point */}
+                    {/* Bottom row: Clear and Backspace */}
                     <button
                       onClick={() => handleNumberPadInput("clear")}
                       className="bg-gradient-to-b from-red-400 to-red-600 text-white text-base font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
                     >
-                      Clear
+                      Clear All
                     </button>
 
                     <button
-                      onClick={() => handleNumberPadInput("0")}
-                      className="bg-gradient-to-b from-teal-400 to-teal-600 text-white text-xl font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
+                      onClick={() => handleNumberPadInput("backspace")}
+                      className="bg-gradient-to-b from-orange-400 to-orange-600 text-white text-base font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
                     >
-                      0
+                      ⌫ Clear
                     </button>
-
-                    <button
-                      onClick={() => handleNumberPadInput(".")}
-                      className="bg-gradient-to-b from-blue-400 to-blue-600 text-white text-xl font-bold py-3 px-3 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95"
-                    >
-                      .
-                    </button>
-
-                    {/* Backspace button on new row */}
-                    <div className="col-span-3 mt-1">
-                      <button
-                        onClick={() => handleNumberPadInput("backspace")}
-                        className="bg-gradient-to-b from-orange-400 to-orange-600 text-white text-base font-bold py-2 px-4 rounded-xl hover:scale-105 transform transition-all duration-200 shadow-lg active:scale-95 w-full"
-                      >
-                        ⌫ Backspace
-                      </button>
-                    </div>
                   </div>
                 </div>
               ) : (
