@@ -16,7 +16,7 @@ export default function Home() {
 
       {/* Math Apps Grid */}
       <div className="max-w-6xl mx-auto px-8 pb-16">
-        <div className="grid md:grid-cols-2 gap-8 mb-16">
+        <div className="grid md:grid-cols-3 gap-8 mb-16">
           {/* Multiplication Test Card */}
           <a
             href="/multiplication-test"
@@ -74,6 +74,34 @@ export default function Home() {
               </div>
             </div>
           </a>
+
+          {/* Two-Digit Math Card */}
+          <a
+            href="/two-digit-math"
+            className="group bg-white rounded-3xl p-8 shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300 border-4 border-orange-200 hover:border-orange-400"
+          >
+            <div className="text-center">
+              <div className="text-6xl mb-6">🧮</div>
+              <h2 className="text-4xl font-bold text-orange-600 mb-4">
+                Two-Digit Math
+              </h2>
+              <p className="text-xl text-gray-700 mb-6">
+                Practice addition and subtraction with 2-digit numbers (10-99)!
+              </p>
+              <div className="bg-orange-50 rounded-2xl p-4 mb-6">
+                <h3 className="font-bold text-orange-800 mb-2">Perfect for:</h3>
+                <ul className="text-orange-700 text-left">
+                  <li>• Elementary school students</li>
+                  <li>• Building mental math skills</li>
+                  <li>• Addition and subtraction practice</li>
+                  <li>• Preparing for advanced math</li>
+                </ul>
+              </div>
+              <div className="bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold py-3 px-8 rounded-full inline-block group-hover:scale-110 transition-transform">
+                Start Learning! →
+              </div>
+            </div>
+          </a>
         </div>
 
         {/* Features Section */}
@@ -111,16 +139,16 @@ export default function Home() {
             <div className="text-sm opacity-90">Multiplication Tables</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 text-center text-white">
+            <div className="text-3xl font-bold">10-99</div>
+            <div className="text-sm opacity-90">Two-Digit Numbers</div>
+          </div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 text-center text-white">
             <div className="text-3xl font-bold">10-99.9</div>
             <div className="text-sm opacity-90">Decimal Range</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 text-center text-white">
-            <div className="text-3xl font-bold">∞</div>
-            <div className="text-sm opacity-90">Unlimited Questions</div>
-          </div>
-          <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 text-center text-white">
-            <div className="text-3xl font-bold">📊</div>
-            <div className="text-sm opacity-90">Progress Tracking</div>
+            <div className="text-3xl font-bold">3</div>
+            <div className="text-sm opacity-90">Math Exercises</div>
           </div>
         </div>
       </div>
