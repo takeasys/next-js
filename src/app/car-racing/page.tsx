@@ -28,23 +28,27 @@ interface SmokeParticle {
   life: number;
 }
 
+// Game state interface for ref-based state
+interface GameState {
+  car: Car;
+  obstacles: Obstacle[];
+  smokeParticles: SmokeParticle[];
+  score: number;
+  gameSpeed: number;
+  roadOffset: number;
+  lastObstacleTime: number;
+  leftPressed: boolean;
+  rightPressed: boolean;
+  isDragging: boolean;
+  dragStartX: number | null;
+  dragStartCarX: number | null;
+}
+
 export default function CarRacingGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
-  const [car, setCar] = useState<Car>({
-    x: 375,
-    y: 500,
-    width: 50,
-    height: 80,
-  });
-  const [obstacles, setObstacles] = useState<Obstacle[]>([]);
-  const [lastObstacleTime, setLastObstacleTime] = useState(0);
-  const [gameSpeed, setGameSpeed] = useState(2);
-  const [smokeParticles, setSmokeParticles] = useState<SmokeParticle[]>([]);
-  const [roadOffset, setRoadOffset] = useState(0);
 
   // Game constants
   const CANVAS_WIDTH = 800;
@@ -57,16 +61,28 @@ export default function CarRacingGame() {
   const SPEED_INCREMENT = 0.5;
   const SPEED_INCREMENT_INTERVAL = 100;
   const MAX_GAME_SPEED = 12;
+  const MAX_SMOKE_PARTICLES = 50; // Limit smoke particles for performance
 
-  // Touch controls
+  // Use ref for game state to avoid re-renders
+  const gameStateRef = useRef<GameState>({
+    car: { x: 375, y: 500, width: 50, height: 80 },
+    obstacles: [],
+    smokeParticles: [],
+    score: 0,
+    gameSpeed: 2,
+    roadOffset: 0,
+    lastObstacleTime: 0,
+    leftPressed: false,
+    rightPressed: false,
+    isDragging: false,
+    dragStartX: null,
+    dragStartCarX: null,
+  });
+
+  // Display state (for UI updates only)
+  const [displayScore, setDisplayScore] = useState(0);
+  const [displaySpeed, setDisplaySpeed] = useState(2);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [leftPressed, setLeftPressed] = useState(false);
-  const [rightPressed, setRightPressed] = useState(false);
-
-  // Drag controls
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState<number | null>(null);
-  const [dragStartCarX, setDragStartCarX] = useState<number | null>(null);
 
   // Check if two obstacles overlap
   const obstaclesOverlap = (
@@ -128,138 +144,28 @@ export default function CarRacingGame() {
   );
 
   // Collision detection
-  const checkCollision = (car: Car, obstacle: Obstacle): boolean => {
-    return (
-      car.x < obstacle.x + obstacle.width &&
-      car.x + car.width > obstacle.x &&
-      car.y < obstacle.y + obstacle.height &&
-      car.y + car.height > obstacle.y
-    );
-  };
+  const checkCollision = useCallback(
+    (car: Car, obstacle: Obstacle): boolean => {
+      return (
+        car.x < obstacle.x + obstacle.width &&
+        car.x + car.width > obstacle.x &&
+        car.y < obstacle.y + obstacle.height &&
+        car.y + car.height > obstacle.y
+      );
+    },
+    []
+  );
 
-  // Update car position
-  const updateCarPosition = useCallback(() => {
-    setCar((prevCar) => {
-      let newX = prevCar.x;
-
-      // If dragging, ignore keyboard/touch controls
-      if (!isDragging) {
-        if (leftPressed && newX > 0) {
-          newX = Math.max(0, newX - CAR_SPEED);
-        }
-        if (rightPressed && newX < CANVAS_WIDTH - prevCar.width) {
-          newX = Math.min(CANVAS_WIDTH - prevCar.width, newX + CAR_SPEED);
-        }
-      }
-
-      return { ...prevCar, x: newX };
-    });
-  }, [leftPressed, rightPressed, isDragging]);
-
-  // Game loop
-  const gameLoop = useCallback(() => {
-    if (!isPlaying || gameOver) return;
-
-    const currentTime = Date.now();
-
-    // Update car position
-    updateCarPosition();
-
-    // Generate smoke particles behind the car
-    if (Math.random() < 0.7) {
-      // 70% chance to generate smoke each frame
-      const newParticle: SmokeParticle = {
-        x: car.x + car.width / 2 + (Math.random() - 0.5) * 20, // Random spread around car center
-        y: car.y + car.height - 5, // Near the back of the car
-        size: 3 + Math.random() * 4, // Random size between 3-7
-        opacity: 0.3 + Math.random() * 0.4, // Random opacity 0.3-0.7
-        velocityX: (Math.random() - 0.5) * 2, // Slight horizontal drift
-        velocityY: 1 + Math.random() * 2, // Move downward/backward
-        life: 1.0, // Full life at start
-      };
-      setSmokeParticles((prev) => [...prev, newParticle]);
-    }
-
-    // Update smoke particles
-    setSmokeParticles((prev) =>
-      prev
-        .map((particle) => ({
-          ...particle,
-          x: particle.x + particle.velocityX,
-          y: particle.y + particle.velocityY,
-          size: particle.size * 1.02, // Gradually expand
-          opacity: particle.opacity * 0.96, // Fade out
-          life: particle.life - 0.02, // Decrease life
-        }))
-        .filter(
-          (particle) => particle.life > 0 && particle.y < CANVAS_HEIGHT + 20
-        )
-    );
-
-    // Update road offset for moving road effect
-    setRoadOffset((prev) => (prev + gameSpeed * 3) % 120); // Reset every 120 pixels to match arrow spacing
-
-    // Generate obstacles (maximum 3 on road at same time)
-    if (
-      currentTime - lastObstacleTime > 1000 - gameSpeed * 80 &&
-      obstacles.length < 5
-    ) {
-      // More frequent: shorter base interval, faster reduction, max 5 obstacles
-      const newObstacle = generateObstacle(obstacles);
-      if (newObstacle) {
-        setObstacles((prev) => [...prev, newObstacle]);
-      }
-      setLastObstacleTime(currentTime);
-    }
-
-    // Update obstacles
-    setObstacles((prevObstacles) => {
-      return prevObstacles
-        .map((obstacle) => ({
-          ...obstacle,
-          y: obstacle.y + obstacle.baseSpeed * gameSpeed, // Use current gameSpeed with obstacle's baseSpeed
-        }))
-        .filter((obstacle) => obstacle.y < CANVAS_HEIGHT + OBSTACLE_HEIGHT);
-    });
-
-    // Check collisions
-    obstacles.forEach((obstacle) => {
-      if (checkCollision(car, obstacle)) {
-        setGameOver(true);
-        setIsPlaying(false);
-      }
-    });
-
-    // Update score and speed
-    setScore((prevScore) => {
-      const newScore = prevScore + 1;
-      if (newScore % SPEED_INCREMENT_INTERVAL === 0) {
-        setGameSpeed((prev) =>
-          Math.min(prev + SPEED_INCREMENT, MAX_GAME_SPEED)
-        );
-      }
-      return newScore;
-    });
-
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [
-    isPlaying,
-    gameOver,
-    car,
-    obstacles,
-    lastObstacleTime,
-    gameSpeed,
-    updateCarPosition,
-    generateObstacle,
-  ]);
-
-  // Drawing function
+  // Drawing function (optimized with refs)
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const state = gameStateRef.current;
+    const { car, obstacles, smokeParticles, roadOffset } = state;
 
     // Helper function for rounded rectangles
     const drawRoundedRect = (
@@ -656,11 +562,133 @@ export default function CarRacingGame() {
       );
       ctx.fill();
     });
+  }, [CANVAS_WIDTH, CANVAS_HEIGHT, LANE_WIDTH, ROAD_LANES]);
 
-    requestAnimationFrame(draw);
-  }, [car, obstacles, smokeParticles, LANE_WIDTH, roadOffset]);
+  // Update car position (using ref)
+  const updateCarPosition = useCallback(() => {
+    const state = gameStateRef.current;
+    let newX = state.car.x;
 
-  // Touch event handlers
+    // If dragging, ignore keyboard/touch controls
+    if (!state.isDragging) {
+      if (state.leftPressed && newX > 0) {
+        newX = Math.max(0, newX - CAR_SPEED);
+      }
+      if (state.rightPressed && newX < CANVAS_WIDTH - state.car.width) {
+        newX = Math.min(CANVAS_WIDTH - state.car.width, newX + CAR_SPEED);
+      }
+    }
+
+    state.car.x = newX;
+  }, [CAR_SPEED, CANVAS_WIDTH]);
+
+  // Game loop (optimized with refs)
+  const gameLoop = useCallback(() => {
+    if (!isPlaying || gameOver) return;
+
+    const state = gameStateRef.current;
+    const currentTime = Date.now();
+
+    // Update car position
+    updateCarPosition();
+
+    // Generate smoke particles behind the car (with limit)
+    if (
+      Math.random() < 0.7 &&
+      state.smokeParticles.length < MAX_SMOKE_PARTICLES
+    ) {
+      const newParticle: SmokeParticle = {
+        x: state.car.x + state.car.width / 2 + (Math.random() - 0.5) * 20,
+        y: state.car.y + state.car.height - 5,
+        size: 3 + Math.random() * 4,
+        opacity: 0.3 + Math.random() * 0.4,
+        velocityX: (Math.random() - 0.5) * 2,
+        velocityY: 1 + Math.random() * 2,
+        life: 1.0,
+      };
+      state.smokeParticles.push(newParticle);
+    }
+
+    // Update smoke particles (in-place for performance)
+    state.smokeParticles = state.smokeParticles
+      .map((particle) => ({
+        ...particle,
+        x: particle.x + particle.velocityX,
+        y: particle.y + particle.velocityY,
+        size: particle.size * 1.02,
+        opacity: particle.opacity * 0.96,
+        life: particle.life - 0.02,
+      }))
+      .filter(
+        (particle) => particle.life > 0 && particle.y < CANVAS_HEIGHT + 20
+      );
+
+    // Update road offset for moving road effect
+    state.roadOffset = (state.roadOffset + state.gameSpeed * 3) % 120;
+
+    // Generate obstacles
+    if (
+      currentTime - state.lastObstacleTime > 1000 - state.gameSpeed * 80 &&
+      state.obstacles.length < 5
+    ) {
+      const newObstacle = generateObstacle(state.obstacles);
+      if (newObstacle) {
+        state.obstacles.push(newObstacle);
+      }
+      state.lastObstacleTime = currentTime;
+    }
+
+    // Update obstacles (in-place for performance)
+    state.obstacles = state.obstacles
+      .map((obstacle) => ({
+        ...obstacle,
+        y: obstacle.y + obstacle.baseSpeed * state.gameSpeed,
+      }))
+      .filter((obstacle) => obstacle.y < CANVAS_HEIGHT + OBSTACLE_HEIGHT);
+
+    // Check collisions
+    for (const obstacle of state.obstacles) {
+      if (checkCollision(state.car, obstacle)) {
+        setGameOver(true);
+        setIsPlaying(false);
+        return;
+      }
+    }
+
+    // Update score and speed
+    state.score += 1;
+    if (state.score % SPEED_INCREMENT_INTERVAL === 0) {
+      state.gameSpeed = Math.min(
+        state.gameSpeed + SPEED_INCREMENT,
+        MAX_GAME_SPEED
+      );
+      setDisplaySpeed(state.gameSpeed); // Update display
+    }
+
+    // Update display score less frequently (every 10 frames)
+    if (state.score % 10 === 0) {
+      setDisplayScore(state.score);
+    }
+
+    // Draw and continue loop
+    draw();
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
+  }, [
+    isPlaying,
+    gameOver,
+    updateCarPosition,
+    generateObstacle,
+    checkCollision,
+    draw,
+    CANVAS_HEIGHT,
+    OBSTACLE_HEIGHT,
+    SPEED_INCREMENT_INTERVAL,
+    SPEED_INCREMENT,
+    MAX_GAME_SPEED,
+    MAX_SMOKE_PARTICLES,
+  ]);
+
+  // Touch event handlers (using refs)
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     const touch = e.touches[0];
@@ -669,21 +697,21 @@ export default function CarRacingGame() {
       const x = touch.clientX - rect.left;
       setTouchStartX(x);
 
-      // Check if touch is on the car for dragging
-      const carCenterX = car.x + car.width / 2;
+      const state = gameStateRef.current;
+      const carCenterX = state.car.x + state.car.width / 2;
       const touchDistanceFromCar = Math.abs(x - carCenterX);
 
       if (touchDistanceFromCar < 50) {
         // Within 50px of car center
-        setIsDragging(true);
-        setDragStartX(x);
-        setDragStartCarX(car.x);
+        state.isDragging = true;
+        state.dragStartX = x;
+        state.dragStartCarX = state.car.x;
       } else {
         // Use old touch controls for tapping left/right
         if (x < CANVAS_WIDTH / 2) {
-          setLeftPressed(true);
+          state.leftPressed = true;
         } else {
-          setRightPressed(true);
+          state.rightPressed = true;
         }
       }
     }
@@ -691,21 +719,24 @@ export default function CarRacingGame() {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     e.preventDefault();
-    if (isDragging && dragStartX !== null && dragStartCarX !== null) {
+    const state = gameStateRef.current;
+    if (
+      state.isDragging &&
+      state.dragStartX !== null &&
+      state.dragStartCarX !== null
+    ) {
       const touch = e.touches[0];
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
         const x = touch.clientX - rect.left;
-        const deltaX = x - dragStartX;
-        const newCarX = dragStartCarX + deltaX;
+        const deltaX = x - state.dragStartX;
+        const newCarX = state.dragStartCarX + deltaX;
 
         // Constrain car within canvas bounds
-        const constrainedX = Math.max(
+        state.car.x = Math.max(
           0,
-          Math.min(CANVAS_WIDTH - car.width, newCarX)
+          Math.min(CANVAS_WIDTH - state.car.width, newCarX)
         );
-
-        setCar((prevCar) => ({ ...prevCar, x: constrainedX }));
       }
     }
   };
@@ -713,102 +744,110 @@ export default function CarRacingGame() {
   const handleTouchEnd = (e: React.TouchEvent) => {
     e.preventDefault();
     setTouchStartX(null);
-    setLeftPressed(false);
-    setRightPressed(false);
-    setIsDragging(false);
-    setDragStartX(null);
-    setDragStartCarX(null);
+    const state = gameStateRef.current;
+    state.leftPressed = false;
+    state.rightPressed = false;
+    state.isDragging = false;
+    state.dragStartX = null;
+    state.dragStartCarX = null;
   };
 
-  // Mouse event handlers for dragging
+  // Mouse event handlers for dragging (using refs)
   const handleMouseDown = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect) {
       const x = e.clientX - rect.left;
-      const carCenterX = car.x + car.width / 2;
+      const state = gameStateRef.current;
+      const carCenterX = state.car.x + state.car.width / 2;
       const mouseDistanceFromCar = Math.abs(x - carCenterX);
 
       if (mouseDistanceFromCar < 50) {
         // Within 50px of car center
-        setIsDragging(true);
-        setDragStartX(x);
-        setDragStartCarX(car.x);
+        state.isDragging = true;
+        state.dragStartX = x;
+        state.dragStartCarX = state.car.x;
       }
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && dragStartX !== null && dragStartCarX !== null) {
+    const state = gameStateRef.current;
+    if (
+      state.isDragging &&
+      state.dragStartX !== null &&
+      state.dragStartCarX !== null
+    ) {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
         const x = e.clientX - rect.left;
-        const deltaX = x - dragStartX;
-        const newCarX = dragStartCarX + deltaX;
+        const deltaX = x - state.dragStartX;
+        const newCarX = state.dragStartCarX + deltaX;
 
         // Constrain car within canvas bounds
-        const constrainedX = Math.max(
+        state.car.x = Math.max(
           0,
-          Math.min(CANVAS_WIDTH - car.width, newCarX)
+          Math.min(CANVAS_WIDTH - state.car.width, newCarX)
         );
-
-        setCar((prevCar) => ({ ...prevCar, x: constrainedX }));
       }
     }
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
-    setDragStartX(null);
-    setDragStartCarX(null);
+    const state = gameStateRef.current;
+    state.isDragging = false;
+    state.dragStartX = null;
+    state.dragStartCarX = null;
   };
 
-  // Keyboard controls
+  // Keyboard controls (using refs)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const state = gameStateRef.current;
       if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
-        setLeftPressed(true);
+        state.leftPressed = true;
       }
       if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
-        setRightPressed(true);
+        state.rightPressed = true;
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      const state = gameStateRef.current;
       if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
-        setLeftPressed(false);
+        state.leftPressed = false;
       }
       if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
-        setRightPressed(false);
+        state.rightPressed = false;
       }
     };
 
     // Mouse event listeners for dragging outside the canvas
     const handleGlobalMouseMove = (e: MouseEvent) => {
+      const state = gameStateRef.current;
       if (
-        isDragging &&
+        state.isDragging &&
         canvasRef.current &&
-        dragStartX !== null &&
-        dragStartCarX !== null
+        state.dragStartX !== null &&
+        state.dragStartCarX !== null
       ) {
         const rect = canvasRef.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        const deltaX = x - dragStartX;
-        const newCarX = dragStartCarX + deltaX;
+        const deltaX = x - state.dragStartX;
+        const newCarX = state.dragStartCarX + deltaX;
 
         // Constrain car within canvas bounds
-        const constrainedX = Math.max(
+        state.car.x = Math.max(
           0,
-          Math.min(CANVAS_WIDTH - car.width, newCarX)
+          Math.min(CANVAS_WIDTH - state.car.width, newCarX)
         );
-
-        setCar((prevCar) => ({ ...prevCar, x: constrainedX }));
       }
     };
 
     const handleGlobalMouseUp = () => {
-      setIsDragging(false);
-      setDragStartX(null);
-      setDragStartCarX(null);
+      const state = gameStateRef.current;
+      state.isDragging = false;
+      state.dragStartX = null;
+      state.dragStartCarX = null;
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -822,7 +861,7 @@ export default function CarRacingGame() {
       window.removeEventListener("mousemove", handleGlobalMouseMove);
       window.removeEventListener("mouseup", handleGlobalMouseUp);
     };
-  }, [isDragging, dragStartX, dragStartCarX, car.width]);
+  }, [CANVAS_WIDTH]);
 
   // Game loop effect
   useEffect(() => {
@@ -836,35 +875,50 @@ export default function CarRacingGame() {
     };
   }, [isPlaying, gameOver, gameLoop]);
 
-  // Drawing effect
-  useEffect(() => {
-    draw();
-  }, [draw]);
-
   const startGame = () => {
     setIsPlaying(true);
     setGameOver(false);
-    setScore(0);
-    setGameSpeed(2);
-    setCar({ x: 375, y: 500, width: 50, height: 80 });
-    setObstacles([]);
-    setSmokeParticles([]);
-    setLastObstacleTime(Date.now());
+    setDisplayScore(0);
+    setDisplaySpeed(2);
+
+    // Reset game state ref
+    gameStateRef.current = {
+      car: { x: 375, y: 500, width: 50, height: 80 },
+      obstacles: [],
+      smokeParticles: [],
+      score: 0,
+      gameSpeed: 2,
+      roadOffset: 0,
+      lastObstacleTime: Date.now(),
+      leftPressed: false,
+      rightPressed: false,
+      isDragging: false,
+      dragStartX: null,
+      dragStartCarX: null,
+    };
   };
 
   const resetGame = () => {
     setIsPlaying(false);
     setGameOver(false);
-    setScore(0);
-    setGameSpeed(2);
-    setCar({ x: 375, y: 500, width: 50, height: 80 });
-    setObstacles([]);
-    setSmokeParticles([]);
-    setLeftPressed(false);
-    setRightPressed(false);
-    setIsDragging(false);
-    setDragStartX(null);
-    setDragStartCarX(null);
+    setDisplayScore(0);
+    setDisplaySpeed(2);
+
+    // Reset game state ref
+    gameStateRef.current = {
+      car: { x: 375, y: 500, width: 50, height: 80 },
+      obstacles: [],
+      smokeParticles: [],
+      score: 0,
+      gameSpeed: 2,
+      roadOffset: 0,
+      lastObstacleTime: 0,
+      leftPressed: false,
+      rightPressed: false,
+      isDragging: false,
+      dragStartX: null,
+      dragStartCarX: null,
+    };
   };
 
   return (
@@ -902,7 +956,7 @@ export default function CarRacingGame() {
             <div className="text-center text-white">
               <div className="text-6xl mb-4">💥</div>
               <h2 className="text-4xl font-bold mb-4">Game Over!</h2>
-              <p className="text-2xl mb-6">Final Score: {score}</p>
+              <p className="text-2xl mb-6">Final Score: {displayScore}</p>
               <button
                 onClick={startGame}
                 className="bg-gradient-to-r from-green-500 to-blue-600 text-white font-bold py-4 px-8 rounded-full text-xl hover:scale-105 transition-transform"
@@ -937,7 +991,7 @@ export default function CarRacingGame() {
       {/* Score and Controls */}
       <div className="text-center mb-6">
         <div className="text-2xl font-bold text-white mb-4">
-          Score: {score} | Speed: {gameSpeed.toFixed(1)}
+          Score: {displayScore} | Speed: {displaySpeed.toFixed(1)}
         </div>
 
         {/* Touch Control Instructions */}
